@@ -64,10 +64,10 @@ The code is designed to be run in the following sequence:
 
 ## References
 
-[1] Frey, H. U. et al. (2003). *Summary of Quantitative Interpretation of IMAGE Far Ultraviolet Auroral Data*. In: Burch, J. L. (Ed.), *Magnetospheric Imaging — The IMAGE Prime Mission*. Springer. https://doi.org/10.1007/978-94-010-0027-7_11  
-[2] Gasparini, S. et al. (2024). *A quantitative analysis of the uncertainties on reconnection electric field estimates using ionospheric measurements*. *JGR: Space Physics*, 129, e2024JA032599. https://doi.org/10.1029/2024JA032599  
-[3] Ohma, A. et al. (2024). *Background removal from global auroral images: Data-driven dayglow modeling*. *Earth Planet. Phys.*, 8(1), 247–257. https://doi.org/10.26464/epp2023051  
-[4] Robinson, R. M. et al. (1987). *On calculating ionospheric conductances from the flux and energy of precipitating electrons*. *JGR*, 92(A3), 2565–2569. https://doi.org/10.1029/JA092iA03p02565
+[1]. Frey, H. U. et al. (2003). *Summary of Quantitative Interpretation of IMAGE Far Ultraviolet Auroral Data*. In: Burch, J. L. (Ed.), *Magnetospheric Imaging — The IMAGE Prime Mission*. Springer. https://doi.org/10.1007/978-94-010-0027-7_11  
+[2]. Gasparini, S. et al. (2024). *A quantitative analysis of the uncertainties on reconnection electric field estimates using ionospheric measurements*. *JGR: Space Physics*, 129, e2024JA032599. https://doi.org/10.1029/2024JA032599  
+[3]. Ohma, A. et al. (2024). *Background removal from global auroral images: Data-driven dayglow modeling*. *Earth Planet. Phys.*, 8(1), 247–257. https://doi.org/10.26464/epp2023051  
+[4]. Robinson, R. M. et al. (1987). *On calculating ionospheric conductances from the flux and energy of precipitating electrons*. *JGR*, 92(A3), 2565–2569. https://doi.org/10.1029/JA092iA03p02565
 
 ## License
 
