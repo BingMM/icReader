@@ -8,7 +8,58 @@ from datetime import datetime, timedelta
 #%% Conductance Image class
 
 class ConductanceImage:
+    """
+    Container for loading and accessing conductance data from a NetCDF file.
+
+    This class handles precomputed quantities such as Hall and Pedersen conductances, 
+    and associated uncertainties.
+
+    Attributes
+    ----------
+    E0 : np.ndarray
+        Characteristic energy [keV] for each pixel.
+    dE0 : np.ndarray
+        Uncertainty in E0.
+    Fe : np.ndarray
+        Electron energy flux [erg/cm^2/s].
+    dFe : np.ndarray
+        Uncertainty in Fe.
+    R : np.ndarray
+        WIC and SI13 ratio.
+    dR : np.ndarray
+        Uncertainty in R.
+    P : np.ndarray
+        Pedersen conductance [mho].
+    H : np.ndarray
+        Hall conductance [mho].
+    dP : np.ndarray
+        Uncertainty in P.
+    dH : np.ndarray
+        Uncertainty in H.
+    dP2 : np.ndarray
+        Secondary uncertainty or alternate error metric for P.
+    dH2 : np.ndarray
+        Secondary uncertainty or alternate error metric for H.
+    Ep : float
+        Proton characteristic energy [keV]
+    dEp : float
+        Uncertainty in Ep.
+    shape : tuple
+        Shape of the conductance arrays (typically [y, x]).
+    time : np.ndarray, optional
+        Array of datetimes corresponding to the image snapshots, if available.
+    grid : CSgrid
+        Cubbed sphere grid on which the data is projected.
+    """
     def __init__(self, filename: str):
+        """
+        Load conductance image data from a NetCDF file.
+
+        Parameters
+        ----------
+        filename : str
+            Path to the NetCDF file containing the conductance and grid data.
+        """
         with netcdf_file(filename, 'r') as nc:
             def load_var(name):
                 return np.copy(nc.variables[name][:])
@@ -26,5 +77,5 @@ class ConductanceImage:
 
             self.grid = CSgrid(
                 CSprojection(nc.position, nc.orientation),
-                nc.L, nc.W, nc.Lres, nc.Wres
+                L=nc.L, W=nc.W, Lres=nc.Lres, Wres=nc.Wres, R=nc.gridR
                 )

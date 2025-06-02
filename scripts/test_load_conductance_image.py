@@ -5,7 +5,7 @@ from icreader import ConductanceImage
 
 #%% Paths
 
-base = '/Home/siv32/mih008/repos/icReader/'
+#base = '/Home/siv32/mih008/repos/icReader/'
 base = '/home/bing/Dropbox/work/code/repos/icReader/'
 path_in = base + 'example_data/or_0085.nc'
 
