@@ -1,40 +1,69 @@
-# IMAGE conductance (Builder)
+# IMAGE Conductance Builder
 
-icBuilder is a code to process WIC, SI12, and SI13 data from IMAGE and estimated ionospheric condutance with propagated uncertainties.
+`icBuilder` is a tool for processing IMAGE WIC, SI12, and SI13 data to estimate ionospheric conductance with propagated uncertainties.
 
-## Project description
+## Project Description
 
-This code was created to robustly estimate ionospheric conductances. All data between ? and ? have been processed and is available at. The intension with the code is not for others to run it (however, they can), but simply documentation of the data processing procedure.
+This code was developed to robustly estimate ionospheric conductances from IMAGE data. All IMAGE data between 2000 and 2001 has been processed and is available [**here**](#) (link to dataset or repository).
+
+The main purpose of this codebase is to document the data processing procedure. While not primarily designed for external use, the code can be run by others if needed.
 
 ## Dependencies
 
-The main dependency is fuvpy (https://github.com/aohma/fuvpy).
-The only other dependency is tqdm (https://github.com/tqdm/tqdm), used for creating progres bars, and can be omitted with minor changes to the code.
+- [`fuvpy`](https://github.com/aohma/fuvpy) – for FUV image processing [3]  
+- [`tqdm`](https://github.com/tqdm/tqdm) – for progress bars (optional; can be removed with minor edits)
 
-## Install
+## Installation
 
 mamba activate your_environment
-git clone icBuilder
-cd icBulder
+git clone https://github.com/yourusername/icBuilder.git
+cd icBuilder
 pip install -e .
 
-## Step-by-step guide
+## Step-by-Step Guide
 
-The code was written to be run in the following sequence.
-### make_orbit_h5_files.py
-Looks through available WIC, SI12, SI13 data and assing each data file to and orbit based on orbitsdates.csv
-### make_orbit_nc_files.py
-Reads the WIC, SI12, and SI13 data, applies a background removal algorithm, saves the results into a series of netcdf files.
-### make_background_removal_figures.py (optional)
-Plots the data in the netcdf files made above
-### grid_resolution_determination.py (optional)
-Analyzes a series of the netcdf files, generated above, to determine optimal grid resolution for binned statistics of WIC, SI12, and SI13 data based on the trade-off between standard error and the amount of bins with 30 or more measurements (lower limit of the central limit theorem). Suggested grid resolution is 225 km for WIC and 450 for SI12 and SI13.
-### make_conductance_orbit_files.py
-Ingests the WIC, SI12, and SI13 netcdf files generates above and generates estimates of conductance
-### make_spline_model.py
-Not available yet
+The code is designed to be run in the following sequence:
 
-## Literature
+### `make_orbit_h5_files.py`
 
-Ohma, A., Madelaire, M., Laundal, K. M., Reistad, J. P., Hatch, S. M., Gasparini, S., and Walker, S. J. (2024). Background removal from global auroral images: Data-driven dayglow modeling. Earth Planet. Phys., 8(1), 247–257. DOI:  10.26464/epp2023051
-Anders
+- Scans available WIC, SI12, and SI13 data.
+- Assigns each file to an orbit based on `orbitsdates.csv`.
+
+### `make_orbit_nc_files.py`
+
+- Reads WIC, SI12, and SI13 data.
+- Applies a background removal algorithm.
+- Saves the results into a series of NetCDF files [3].
+
+### `make_background_removal_figures.py` *(optional)*
+
+- Plots the data stored in the NetCDF files for quality inspection.
+
+### `grid_resolution_determination.py` *(optional)*
+
+- Analyzes the NetCDF files to determine the optimal grid resolution.
+- Uses the trade-off between standard error and the number of bins with ≥30 measurements (lower limit of the central limit theorem).
+- Suggested resolution: 225 km for WIC, 450 km for SI12 and SI13.
+
+### `make_conductance_orbit_files.py`
+
+- Ingests the NetCDF files and estimates ionospheric conductance [1,2,4].
+
+### `make_spline_model.py`
+
+- *(Not implemented yet)*
+
+## References
+
+[1] Frey, H. U. et al. (2003). *Summary of Quantitative Interpretation of IMAGE Far Ultraviolet Auroral Data*. In: Burch, J. L. (Ed.), *Magnetospheric Imaging — The IMAGE Prime Mission*. Springer. https://doi.org/10.1007/978-94-010-0027-7_11  
+[2] Gasparini, S. et al. (2024). *A quantitative analysis of the uncertainties on reconnection electric field estimates using ionospheric measurements*. *JGR: Space Physics*, 129, e2024JA032599. https://doi.org/10.1029/2024JA032599  
+[3] Ohma, A. et al. (2024). *Background removal from global auroral images: Data-driven dayglow modeling*. *Earth Planet. Phys.*, 8(1), 247–257. https://doi.org/10.26464/epp2023051  
+[4] Robinson, R. M. et al. (1987). *On calculating ionospheric conductances from the flux and energy of precipitating electrons*. *JGR*, 92(A3), 2565–2569. https://doi.org/10.1029/JA092iA03p02565
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
+
+## Contact
+
+For questions or comments, please contact [michael.madelaire@uib.no].
