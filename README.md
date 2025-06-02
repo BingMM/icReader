@@ -19,7 +19,7 @@ pip install -e .
 
 ## Usage
 
-See [`scripts/test_load_conductance.py`](scripts/test_load_conductance.py) for an example of how to load and use the data.
+See [`scripts/test_load.py`](scripts/test_load.py) for an example of how to load and use the data.
 
 ## License
 
