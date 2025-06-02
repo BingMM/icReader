@@ -1,0 +1,8 @@
+LICENSE
+pyproject.toml
+icreader/__init__.py
+icreader/conductanceimage.py
+icreader.egg-info/PKG-INFO
+icreader.egg-info/SOURCES.txt
+icreader.egg-info/dependency_links.txt
+icreader.egg-info/top_level.txt
