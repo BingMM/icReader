@@ -1,14 +1,19 @@
 #%% Import
 
+import os
 import matplotlib.pyplot as plt
+import icreader
 from icreader import ConductanceImage
 
 #%% Paths
 
-base = '/Home/siv32/mih008/repos/icReader/'
-#base = '/Home/siv32/mih008/repos/icBuilder/'
-base = '/home/bing/Dropbox/work/code/repos/icBuilder/'
-path_in = base + 'example_data/conductance/or_0085.nc'
+# Get path to root of icreader repo
+base = os.path.dirname(os.path.abspath(icreader.__file__))
+base = os.path.abspath(os.path.join(base, '..'))  # Move up to repo root
+
+# Paths
+path_in = os.path.join(base, 'example_data', 'or_0089.nc')
+fig_out = os.path.join(base, 'figures', 'test_plot.png')
 
 #%% Load conductance Image
 
@@ -18,8 +23,8 @@ cI = ConductanceImage(path_in)
 
 plt.ioff()
 plt.figure(figsize=(10,10))
-plt.imshow(cI.H[10])
+plt.imshow(cI.P[40])
 plt.colorbar()
-plt.savefig(base + 'figures/test_plot.png', bbox_inches='tight')
+plt.savefig(fig_out, bbox_inches='tight')
 plt.close('all')
 plt.ion()
