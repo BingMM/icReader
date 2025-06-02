@@ -18,6 +18,7 @@ The main purpose of this codebase is to document the data processing procedure. 
 - [`fuvpy`](https://github.com/aohma/fuvpy) – for FUV image processing **[3]**
 - [`secsy`](https://github.com/klaundal/secsy) - for cubed sphere grid generation
 - [`tqdm`](https://github.com/tqdm/tqdm) – for progress bars (optional; can be removed with minor edits)
+- [`icReader`](https://github.com/BingMM/icReader) - for reading conductance output files (optional; used for creating conductance figures)
 
 ## Installation
 
