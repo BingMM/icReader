@@ -2,6 +2,10 @@
 
 `icBuilder` is a tool for processing IMAGE WIC, SI12, and SI13 data to estimate ionospheric conductance with propagated uncertainties.
 
+Estimated condutances with associated uncertainties are available [**here**](#).
+
+`icBuilder` is NOT intended for reading the esimated conductances. Instead use the lightweight `icReader` available [**here**](#).
+
 ## Project Description
 
 This code was developed to robustly estimate ionospheric conductances from IMAGE data. All IMAGE data between 2000 and 2001 has been processed and is available [**here**](#) (link to dataset or repository).
