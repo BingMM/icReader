@@ -2,7 +2,7 @@
 
 `icReader` is a lightweight Python package for reading NetCDF files containing ionospheric conductances generated with [`icBuilder`](https://github.com/BingMM/icBuilder).
 
-Estimated ionospheric conductances with associated uncertainties are available [**here**](#).
+Estimated ionospheric conductances with associated uncertainties are available [**here**](https://doi.org/10.5281/zenodo.15579301).
 
 ## Dependencies
 
