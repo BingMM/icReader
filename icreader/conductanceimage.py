@@ -66,7 +66,7 @@ class ConductanceImage:
 
             for attr in ['wic_avg', 'wic_std', 's12_avg', 's12_std', 's13_avg', 
                          's13_std', 'E0', 'dE0', 'Fe', 'dFe', 'R', 'dR', 'P', 'H', 
-                         'dP', 'dH', 'dP2', 'dH2']:
+                         'dP', 'dH', 'w']:
                 setattr(self, attr, load_var(attr))
 
             self.Ep = float(nc.Ep)
