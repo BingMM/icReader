@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import icreader
 from icreader import ConductanceImage
 from polplot import pp
+from apexpy import Apex
 
 #%% Paths
 
@@ -14,6 +15,7 @@ base = os.path.abspath(os.path.join(base, '..'))  # Move up to repo root
 
 # Paths
 path_in = os.path.join(base, 'example_data', 'or_0085.nc')
+path_in = os.path.join(base, 'example_data', 'or_0099.nc')
 fig_out = os.path.join(base, 'figures/')
 
 #%% Load conductance Image
@@ -22,7 +24,11 @@ cI = ConductanceImage(path_in)
 
 #%% Step 1 : Binning
 
+i = 135
+apex = Apex(cI.time[i])
+
 lt = (cI.grid.lon/15)%24
+lt = apex.mlon2mlt(cI.grid.lon, cI.time[i])
 lat = cI.grid.lat
 
 vmax = [4000, 12, 25,
@@ -33,13 +39,13 @@ fig, axs = plt.subplots(2, 3, figsize=(15, 10))
 plt.subplots_adjust(hspace=0, wspace=0)
 paxs = [pp(ax) for ax in axs.flatten()]
 
-im = paxs[0].plotimg(lat, lt, cI.wic_avg[0], crange=(0,vmax[0]))
-paxs[1].plotimg(lat, lt, cI.s13_avg[0], crange=(0,vmax[1]))
-paxs[2].plotimg(lat, lt, cI.s12_avg[0], crange=(0,vmax[2]))
+im = paxs[0].plotimg(lat, lt, cI.wic_avg[i], crange=(0,vmax[0]))
+paxs[1].plotimg(lat, lt, cI.s13_avg[i], crange=(0,vmax[1]))
+paxs[2].plotimg(lat, lt, cI.s12_avg[i], crange=(0,vmax[2]))
 
-paxs[3].plotimg(lat, lt, cI.wic_std[0], crange=(0,vmax[3]))
-paxs[4].plotimg(lat, lt, cI.s13_std[0], crange=(0,vmax[4]))
-paxs[5].plotimg(lat, lt, cI.s12_std[0], crange=(0,vmax[5]))
+paxs[3].plotimg(lat, lt, cI.wic_std[i], crange=(0,vmax[3]))
+paxs[4].plotimg(lat, lt, cI.s13_std[i], crange=(0,vmax[4]))
+paxs[5].plotimg(lat, lt, cI.s12_std[i], crange=(0,vmax[5]))
 
 for ax, title in zip(axs[0, :], ['WIC', 'SI13', 'SI12']):
     ax.text(.5, 1, title, ha='center', va='center', fontsize=16, transform=ax.transAxes)
@@ -48,7 +54,7 @@ for ax, label in zip(axs[:, 0], ['Median', 'Std']):
     ax.text(0, .5, label, ha='right', va='center', fontsize=16, transform=ax.transAxes, rotation='vertical')
 
 for ax in axs[-1, :]:
-    ax.text(.5, 0, 'MLT=00', ha='center', va='center', fontsize=12, transform=ax.transAxes)
+    ax.text(.5, 0, 'MLT 00', ha='center', va='center', fontsize=12, transform=ax.transAxes)
 
 for ax, vmax_ in zip(axs.flatten(), vmax):
     ax.text(.9, .85, f'max={vmax_}', ha='center', va='center', fontsize=12, transform=ax.transAxes)
@@ -68,9 +74,6 @@ plt.ion()
 
 #%% Step 2 : Frey
 
-lt = (cI.grid.lon/15)%24
-lat = cI.grid.lat
-
 vmax = [150, 25, 50,
         5000, 30, 10]
 
@@ -79,13 +82,13 @@ fig, axs = plt.subplots(2, 3, figsize=(15, 10))
 plt.subplots_adjust(hspace=0, wspace=0)
 paxs = [pp(ax) for ax in axs.flatten()]
 
-im = paxs[0].plotimg(lat, lt, cI.R[0], crange=(0,vmax[0]))
-paxs[1].plotimg(lat, lt, cI.E0[0], crange=(0,vmax[1]))
-paxs[2].plotimg(lat, lt, cI.Fe[0], crange=(0,vmax[2]))
+im = paxs[0].plotimg(lat, lt, cI.R[i], crange=(0,vmax[0]))
+paxs[1].plotimg(lat, lt, cI.E0[i], crange=(0,vmax[1]))
+paxs[2].plotimg(lat, lt, cI.Fe[i], crange=(0,vmax[2]))
 
-paxs[3].plotimg(lat, lt, cI.dR[0], crange=(0,vmax[3]))
-paxs[4].plotimg(lat, lt, cI.dE0[0], crange=(0,vmax[4]))
-paxs[5].plotimg(lat, lt, cI.dFe[0], crange=(0,vmax[5]))
+paxs[3].plotimg(lat, lt, cI.dR[i], crange=(0,vmax[3]))
+paxs[4].plotimg(lat, lt, cI.dE0[i], crange=(0,vmax[4]))
+paxs[5].plotimg(lat, lt, cI.dFe[i], crange=(0,vmax[5]))
 
 for ax, title in zip(axs[0, :], ['R (WIC*/SI13*)', 'E0', 'Fe']):
     ax.text(.5, 1, title, ha='center', va='center', fontsize=16, transform=ax.transAxes)
@@ -94,7 +97,7 @@ for ax, label in zip(axs[:, 0], ['Mean', 'Std']):
     ax.text(0, .5, label, ha='right', va='center', fontsize=16, transform=ax.transAxes, rotation='vertical')
 
 for ax in axs[-1, :]:
-    ax.text(.5, 0, 'MLT=00', ha='center', va='center', fontsize=12, transform=ax.transAxes)
+    ax.text(.5, 0, 'MLT 00', ha='center', va='center', fontsize=12, transform=ax.transAxes)
 
 for ax, vmax_ in zip(axs.flatten(), vmax):
     ax.text(.9, .85, f'max={vmax_}', ha='center', va='center', fontsize=12, transform=ax.transAxes)
@@ -114,9 +117,6 @@ plt.ion()
 
 #%% Step 3 : Robinson
 
-lt = (cI.grid.lon/15)%24
-lat = cI.grid.lat
-
 vmax = [ 70, 10, 1,
         150, 150]
 
@@ -125,12 +125,12 @@ fig, axs = plt.subplots(2, 3, figsize=(15, 10))
 plt.subplots_adjust(hspace=0, wspace=0)
 paxs = [pp(ax) for ax in axs.flatten()[:-1]]
 
-im = paxs[0].plotimg(lat, lt, cI.H[0], crange=(0,vmax[0]))
-paxs[1].plotimg(lat, lt, cI.P[0], crange=(0,vmax[1]))
-paxs[2].plotimg(lat, lt, 1-cI.w[0], crange=(0,vmax[2]))
+im = paxs[0].plotimg(lat, lt, cI.H[i], crange=(0,vmax[0]))
+paxs[1].plotimg(lat, lt, cI.P[i], crange=(0,vmax[1]))
+paxs[2].plotimg(lat, lt, 1-cI.w[i], crange=(0,vmax[2]))
 
-paxs[3].plotimg(lat, lt, cI.dH[0], crange=(0,vmax[3]))
-paxs[4].plotimg(lat, lt, cI.dP[0], crange=(0,vmax[4]))
+paxs[3].plotimg(lat, lt, cI.dH[i], crange=(0,vmax[3]))
+paxs[4].plotimg(lat, lt, cI.dP[i], crange=(0,vmax[4]))
 axs[1,-1].axis('off')
 
 for ax, title in zip(axs[0, :], ['Hall', 'Pedersen', 'Weight']):
@@ -140,7 +140,7 @@ for ax, label in zip(axs[:, 0], ['Mean', 'Std']):
     ax.text(0, .5, label, ha='right', va='center', fontsize=16, transform=ax.transAxes, rotation='vertical')
 
 for ax in [axs[1,0], axs[1,1], axs[0,2]]:
-    ax.text(.5, 0, 'MLT=00', ha='center', va='center', fontsize=12, transform=ax.transAxes)
+    ax.text(.5, 0, 'MLT 00', ha='center', va='center', fontsize=12, transform=ax.transAxes)
 
 for ax, vmax_ in zip(axs.flatten()[:-1], vmax):
     ax.text(.9, .85, f'max={vmax_}', ha='center', va='center', fontsize=12, transform=ax.transAxes)
