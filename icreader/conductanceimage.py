@@ -2,7 +2,7 @@
 
 import numpy as np
 from secsy import CSgrid, CSprojection
-from scipy.io import netcdf_file
+from netCDF4 import Dataset
 from datetime import datetime, timedelta
 
 #%% Conductance Image class
@@ -60,24 +60,51 @@ class ConductanceImage:
         filename : str
             Path to the NetCDF file containing the conductance and grid data.
         """
-        with netcdf_file(filename, 'r') as nc:
+        with Dataset(filename, "r") as nc:
+    
             def load_var(name):
-                return np.copy(nc.variables[name][:])
-
-            for attr in ['wic_avg', 'wic_std', 's12_avg', 's12_std', 's13_avg', 
-                         's13_std', 'E0', 'dE0', 'Fe', 'dFe', 'R', 'dR', 'P', 'H', 
-                         'dP', 'dH', 'w']:
+                return np.array(nc.variables[name][:])
+    
+            # Load main data variables
+            for attr in [
+                "wic_avg", "wic_std", "s12_avg", "s12_std", "s13_avg",
+                "s13_std", "E0", "dE0", "Fe", "dFe", "R", "dR",
+                "P", "H", "dP", "dH", "w"
+            ]:
                 setattr(self, attr, load_var(attr))
-
+    
+            # Scalars
             self.Ep = float(nc.Ep)
             self.dEp = float(nc.dEp)
+    
+            # Shape
             self.shape = self.E0.shape
-
+    
+            # Time variable
             if "time" in nc.variables:
-                ref = datetime.strptime(nc.reference_time.decode(), "%Y-%m-%dT%H:%M:%S")
-                self.time = np.array([ref + timedelta(seconds=int(s)) for s in nc.variables["time"][:]])
+                ref = datetime.strptime(nc.reference_time, "%Y-%m-%dT%H:%M:%S")
+                self.time = np.array(
+                    [ref + timedelta(seconds=int(s)) for s in nc.variables["time"][:]]
+                )
+    
+            # GRID GROUP
+            grid_grp = nc.groups["grid"]
 
             self.grid = CSgrid(
-                CSprojection(nc.position, nc.orientation),
-                L=nc.L, W=nc.W, Lres=nc.Lres, Wres=nc.Wres, R=nc.gridR
-                )
+                CSprojection(
+                    np.array(grid_grp.position),
+                    np.array(grid_grp.orientation),
+                ),
+                L=float(grid_grp.L),
+                W=float(grid_grp.W),
+                Lres=float(grid_grp.Lres),
+                Wres=float(grid_grp.Wres),
+                R=float(grid_grp.R),
+            )
+
+    def __repr__(self):
+        x = '<ConductanceImage object>'
+        x += f'\nTimespan: {self.time[0]} to {self.time[-1]}'
+        x += f'\nTemporal dim: {self.shape[0]}'
+        x += f'\nSpatial dim: {self.shape[1]} x {self.shape[2]}'                
+        return x
