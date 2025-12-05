@@ -12,7 +12,8 @@ base = os.path.dirname(os.path.abspath(icreader.__file__))
 base = os.path.abspath(os.path.join(base, '..'))  # Move up to repo root
 
 # Paths
-path_in = os.path.join(base, 'example_data', 'conductanceimages', 'or_0099.nc')
+orbit = 478
+path_in = os.path.join(base, 'example_data', 'conductanceimages', f'or_{str(orbit).zfill(4)}.nc')
 fig_out = os.path.join(base, 'figures', 'test_plot_cI.png')
 
 #%% Load conductance Image
