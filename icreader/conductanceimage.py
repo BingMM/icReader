@@ -72,7 +72,7 @@ class ConductanceImage:
             for attr in [
                 "wic_avg", "wic_std", "s12_avg", "s12_std", "s13_avg",
                 "s13_std", "E0", "dE0", "Fe", "dFe", "R", "dR",
-                "P", "H", "dP", "dH", "w"#, "ssalon"
+                "P", "H", "dP", "dH", "w", "ssalon"
             ]:
                 setattr(self, attr, load_var(attr))
     
