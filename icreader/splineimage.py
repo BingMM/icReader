@@ -2,12 +2,13 @@
 
 import numpy as np
 from secsy import CSgrid, CSprojection
-from scipy.io import netcdf_file
+from netCDF4 import Dataset
 from datetime import datetime, timedelta
-import scipy.sparse as sp
-from sksparse.cholmod import cholesky
 from scipy.interpolate import BSpline
-from scipy.sparse import kron, vstack, csc_matrix
+from scipy.sparse import kron, csc_matrix
+import apexpy
+from apexpy.helpers import subsol
+import warnings
 
 #%% Conductance Image class
 
@@ -20,14 +21,6 @@ class SplineImage:
 
     Attributes
     ----------
-    P : np.ndarray
-        Pedersen conductance [mho].
-    H : np.ndarray
-        Hall conductance [mho].
-    dP : np.ndarray
-        Uncertainty in P.
-    dH : np.ndarray
-        Uncertainty in H.
     time : np.ndarray, optional
         Array of datetimes corresponding to the image snapshots, if available.
     grid : CSgrid
@@ -36,22 +29,21 @@ class SplineImage:
         Hall spline model coefficients.
     mP : np.ndarray
         Pedersen spline model coefficients.
-    G : np.ndarray
-        2D spatial spline basis functions
+    mdH : np.ndarray
+        Hall uncertainty spline model coefficients.
+    mdP : np.ndarray
+        Pedersen uncertainty spline model coefficients.
     kt : int
-        something
+        Temporal spline degree.
+    k : int
+        Spatial spline degree.
     nkt : int
-        something
-    LH : csc matrix
-        Lower triangular matrix from Cholesky factorization of the Hall sensitivity matrix
-    LP : csc matrix
-        Lower triangular matrix from Cholesky factorization of the Pedersen sensitivity matrix
-    PH : np.ndarray
-        Permuation of LH
-    PP : np.ndarray
-        Permutation of LP
+        Amount of knots in temporal spline.
+    nk : int
+        Amount of knots in spatial spline.
+        
     """
-    def __init__(self, filename: str):
+    def __init__(self, filename: str, spatial_extrapolation_fill=np.nan):
         """
         Load spline image data from a NetCDF file.
 
@@ -60,43 +52,40 @@ class SplineImage:
         filename : str
             Path to the NetCDF file containing the conductance and grid data.
         """
+        self.filename = filename
+        self.sef = spatial_extrapolation_fill
         self.load_file(filename)
+        self.init_splines()
+        self.reset_space()
         self.reset_time()
-        self.reset_C()
-        self.reset_spatial_evaluation()
+        self.reset_eval()
+
+    def __repr__(self):
+        x = '<SplineImage object>'
+        x += f'\nGenerated from file: {self.filename}'
+        x += f'\nTimespan: {self.time_[0]} to {self.time_[-1]}'
+        if self._t is None:
+            x += '\nCurrent time: not set!'
+        else:
+            x += f'\nCurrent time: {self.time}'
+        return x
 
 #%% Load file
 
     def load_file(self, filename: str):
-        with netcdf_file(filename, 'r') as nc:
-            
-            self._H = nc.variables['H'][:].copy()
-            self._P = nc.variables['P'][:].copy()
-            self._dH = nc.variables['dH'][:].copy()
-            self._dP = nc.variables['dP'][:].copy()
+        with Dataset(filename, 'r') as nc:
             
             self.mH = nc.variables['mH'][:].copy()
             self.mP = nc.variables['mP'][:].copy()
+            self.mdH = nc.variables['mdH'][:].copy()
+            self.mdP = nc.variables['mdP'][:].copy()
             
-            self.PH = nc.variables['PH'][:].copy()
-            self.PP = nc.variables['PP'][:].copy()
+            ref = datetime.strptime(nc.reference_time, "%Y-%m-%dT%H:%M:%S")
+            self.time_ = np.array([self.get_time(s, ref) for s in nc.variables["time"][:]])
+            self.ref = self.time_[0]
             
-            data    = nc.variables["LH_data"][:].copy()
-            indices = nc.variables["LH_indices"][:].copy()
-            indptr  = nc.variables["LH_indptr"][:].copy()
-            shape   = tuple(nc.LH_shape)  # stored as attribute (tuple of ints)
-            self.LH = sp.csc_matrix((data, indices, indptr), shape=shape)
-        
-            data    = nc.variables["LP_data"][:].copy()
-            indices = nc.variables["LP_indices"][:].copy()
-            indptr  = nc.variables["LP_indptr"][:].copy()
-            shape   = tuple(nc.LP_shape)  # stored as attribute (tuple of ints)
-            self.LP = sp.csc_matrix((data, indices, indptr), shape=shape)
-        
-            if "time" in nc.variables:
-                ref = datetime.strptime(nc.reference_time.decode(), "%Y-%m-%dT%H:%M:%S")
-                self.time = np.array([ref + timedelta(seconds=int(s)) for s in nc.variables["time"][:]])
-        
+            self.t_ = np.array([self.get_t(t) for t in self.time_])
+            
             self.grid = CSgrid(
                 CSprojection(nc.position, nc.orientation),
                 L=nc.L, W=nc.W, Lres=nc.Lres, Wres=nc.Wres, R=nc.gridR
@@ -105,103 +94,116 @@ class SplineImage:
             self.k, self.nk = nc.k, nc.nk
             self.kt, self.nkt = nc.kt, nc.nkt
 
-#%% Define internal time
-    
-    def reset_time(self):
-        self._t = None
-    
-    @property
-    def t(self):
-        if self._t is None:
-            self._t = np.array([self.get_t(t) for t in self.time])
-        return self._t
-
     def get_t(self, dt: datetime):
-        if (dt < self.time[0]) or (dt > self.time[-1]):
+        if (dt < self.ref) or (dt > self.time_[-1]):
             raise ValueError('The requested date is outside the models temporal constraints.')
         
-        return (dt - self.time[0]).total_seconds()
+        return (dt - self.ref).total_seconds()
+    
+    def get_time(self, t: int, ref=None):
+        if ref is None:
+            return self.ref + timedelta(seconds=int(t))    
+        else:
+            return ref + timedelta(seconds=int(t))
 
 #%% Splines
+
+    def init_splines(self):
+        self.splx = BSpline(self.knots, np.eye(self.ncp), self.k)
+        self.splt = BSpline(self.tknots, np.eye(self.ncpt), self.kt)
+
+    @property
+    def x_(self):
+        return self.grid.xi.flatten()
+    
+    @property
+    def y_(self):
+        return self.grid.eta.flatten()
+
+    @property
+    def ncp(self):
+        return self.nk - self.k - 1
+    
+    @property
+    def ncpt(self):
+        return self.nkt - self.kt - 1
+
     @property
     def knots(self):
-        return np.r_[[self.x.min()]*self.k, np.linspace(self.x.min(), self.x.max(), self.nk-2*self.k), [self.x.max()]*self.k]
+        return np.r_[[self.x_.min()]*self.k, np.linspace(self.x_.min(), self.x_.max(), self.nk-2*self.k), [self.x_.max()]*self.k]
 
     @property
     def tknots(self):
-        return np.r_[[self.t.min()]*self.kt, np.linspace(self.t.min(), self.t.max(), self.nkt-2*self.kt), [self.t.max()]*self.kt]
-
-#%% Define posterior model covariance matrix
-        
-    def reset_C(self):
-        self._CH = None
-        self._CP = None
+        return np.r_[[self.t_.min()]*self.kt, np.linspace(self.t_.min(), self.t_.max(), self.nkt-2*self.kt), [self.t_.max()]*self.kt]
     
     @property
-    def CH(self):
-        if self._CH is None:
-            print('Forming Hall posterior model covariance matrix. This can take a while.')
-            self._CH = self.compute_covariance_cholmod(comp='hall')
-        return self._CH
-    
-    @property
-    def CP(self):
-        if self._CP is None:
-            print('Forming Pedersen posterior model covariance matrix. This can take a while.')
-            self._CP = self.compute_covariance_cholmod(comp='pedersen')
-        return self._CP
-    
-    def compute_covariance_cholmod(self, comp='hall'):
-        """
-        Recreate cholmod Factor object and use its inv() method
-        """
-        if comp == 'hall':
-            L, P = self.LH, self.PH
-        else:
-            L, P = self.LP, self.PP
-        
-        # Create a minimal Factor-like object
-        # Note: This is a bit hacky but works
-        
-        # First create a dummy factor to get the structure
-        
-        # Create A from L and P (we need this just once)
-        P_inv = np.empty_like(P)
-        P_inv[P] = np.arange(len(P))
-        
-        A_perm = L @ L.T  # This is P*A*P^T
-        A = A_perm[P_inv, :][:, P_inv]  # Get back A
-        
-        # Now factor it to get a proper Factor object
-        factor = cholesky(A)
-        C = factor.inv()
-        
-        return C
+    def sply(self):
+        return self.splx
 
-#%% Spatial grid
+#%% evaluation space
 
-    def reset_spatial_evaluation(self):
+    def reset_space(self):
+        self._lon = None
+        self._lat = None
         self._x = None
         self._y = None
         self._G = None
-    
-    def set_spatial_evaluation(self, lon, lat):
-        self.reset_spatial_evaluation()
-        self._x, self._y = self.grid.projection.geo2cube(lon, lat)        
+        self._Gt = None
+        self._coord_sys = None
+        self._mask = None
 
+    def set_space(self, lon=None, lat=None, x=None, y=None, coord_sys = 'native'):
+        self.reset_space()
+        self.reset_eval()
+
+        coord_sys = coord_sys.lower()
+        if not coord_sys in ['geo', 'apex', 'native']:
+            raise ValueError('coord_sys has to be geo or apex.')
+        self._coord_sys = coord_sys
+        
+        if x is not None and y is not None:
+            self._x, self._y = x, y
+        
+        self._lon = lon
+        self._lat = lat
+
+    def convert_space(self, lat, lon, h=110):
+        # Convert from geo to apex
+        if self._coord_sys == 'geo':
+            lat, lon = self.apex.geo2apex(lat, lon, h)
+        
+        # Convert from apex (lat, lon) to apex (lat, mlt)
+        lon = self.apex.mlon2mlt(lon, self.time) * 15
+        
+        return self.grid.projection.geo2cube(lon, lat)
+    
+    def _set_space(self):
+        if self._lon is None or self._lat is None:
+            self._x, self._y = self.grid.xi, self.grid.eta
+        else:
+            self._x, self._y = self.convert_space(self._lat, self._lon)
+        
+        self._mask = (self.grid.xi.min() <= self._x) & (self._x <= self.grid.xi.max()) & (self.grid.eta.min() <= self._y) & (self._y <= self.grid.eta.max())
+        if not np.all(self._mask):
+            warnings.warn("The grid used for prediction is outside of the spline model domain.", RuntimeWarning)
+    
+    @property
+    def mask(self):
+        if self._mask is None:
+            self._set_space()
+        return self._mask    
+    
     @property
     def x(self):
         if self._x is None:
-            return self.grid.xi
-        else:
-            return self._x
-    
+            self._set_space()
+        return self._x
+
     @property
     def y(self):
         if self._y is None:
-            return self.grid.eta
-        else:
-            return self._y
+            self._set_space()
+        return self._y
 
     @property
     def G(self):
@@ -210,46 +212,184 @@ class SplineImage:
         return self._G
 
     def generate_G_2d(self, return_sparse=False):
-        G = np.zeros((self.x.size, self.ncp**2))
-        for i, (xi, yi) in enumerate(zip(self.x.flatten(), self.y.flatten())):
-            Gx = BSpline.design_matrix(xi, self.knots, self.k).todense()
-            Gy = BSpline.design_matrix(yi, self.knots, self.k).todense()
-            Gy = np.kron(np.eye(self.ncp), Gy)
-            G[i, :] = Gx.dot(Gy)
+        """
+        Optimized generation of the Design Matrix (G).
+        Speedup: ~100x-1000x compared to looping.
+        """
+        # 1. Get Basis matrices for ALL points at once
+        # Scipy BSpline evaluates the whole array efficiently in C
+        # Shape: (N_points, ncp)
+        Bx = self.splx(self.x.flatten()) 
+        By = self.sply(self.y.flatten())
+
+        # 2. Compute Row-wise Kronecker product via Broadcasting
+        # We want: G[i] = Bx[i] (outer_product) By[i]
+        
+        # Reshape to allow broadcasting: 
+        # (N, ncp, 1) * (N, 1, ncp) -> (N, ncp, ncp)
+        G_3d = Bx[:, :, np.newaxis] * By[:, np.newaxis, :]
+        
+        # 3. Flatten the last two dimensions to get the 2D design matrix
+        # Shape: (N_points, ncp * ncp)
+        G = G_3d.reshape(self.x.size, self.ncp**2)
+
         if return_sparse:
             return csc_matrix(G)
         return G
+
+#%% Evaluation time
+
+    def reset_time(self):
+        self._t = None
+        self._apex = None
+        self._ssalon = None
         
-#%% Evaluate
+        self._mH_s = None
+        self._mP_s = None
+        self._mdH_s = None
+        self._mdP_s = None
+
+    def set_time(self, t):
+        self.reset_time()
+        self.reset_eval()
+        self._t = self.get_t(t)
+        self.set_spatial_model_coefficients()
+    
+    def set_spatial_model_coefficients(self):
+        Gt2G = kron(np.eye(self.ncp**2), self.splt(self.t), format='csr')
+        self._mH_s  = Gt2G@self.mH
+        self._mP_s  = Gt2G@self.mP
+        self._mdH_s = Gt2G@self.mdH
+        self._mdP_s = Gt2G@self.mdP
+    
+    @property
+    def mH_s(self):
+        if self._mH_s is None:
+            self.set_spatial_model_coefficients()
+        return self._mH_s
+    
+    @property
+    def mP_s(self):
+        if self._mP_s is None:
+            self.set_spatial_model_coefficients()
+        return self._mP_s
+    
+    @property
+    def mdH_s(self):
+        if self._mdH_s is None:
+            self.set_spatial_model_coefficients()
+        return self._mdH_s
+    
+    @property
+    def mdP_s(self):
+        if self._mdP_s is None:
+            self.set_spatial_model_coefficients()
+        return self._mdP_s
+        
+    @property
+    def t(self):
+        if self._t is None:
+            raise ValueError("Set time first")
+        return self._t
 
     @property
-    def Gt(self):
-        if self._Gt is None:
-            self._Gt = self.generate_G_3d()
-        return self._Gt
-        
-    def generate_G_3d(self):
-        Gt = []
-        for i, ti in enumerate(self.t):
-            Gt_ = BSpline.design_matrix(ti, self.tknots, self.kt)  # Already sparse
-            Gt_ = kron(np.eye(self.G.shape[1]), Gt_, format='csr')  # Ensure sparse output
-            Gt.append(self.G @ Gt_)  # Matrix multiplication remains sparse
-        return vstack(Gt, format='csr')  # Efficient sparse stacking
+    def time(self):
+        return self.get_time(self.t)
+    
+    @property
+    def apex(self):
+        if self._apex is None:
+            self._apex = apexpy.Apex(self.get_time(self.t))
+        return self._apex
+    
+    @property
+    def ssalon(self):
+        if self._ssalon is None:
+            ssglat, ssglon = subsol(self.time)
+            _, self._ssalon = self.apex.geo2apex(ssglat, ssglon, 318550)
+        return self._ssalon
 
+#%% Model evaluation
 
+    def reset_eval(self):
+        self._H = None
+        self._P = None
+        self._dH = None
+        self._dP = None
+    
+    def _ev2D(self, m):
+        #var = (self.Gt@m).reshape(self.x.shape)
+        var = (self.G@m).reshape(self.x.shape)
+        var[var < 0] = 0
+        if self.sef is not None:
+            var[~self.mask] = self.sef
+        return var
+    
+    @property
+    def H(self):
+        if self._H is None:
+            self._H = self._ev2D(self.mH_s)
+        return self._H
 
+    @property
+    def P(self):
+        if self._P is None:
+            self._P = self._ev2D(self.mP_s)
+        return self._P
 
+    @property
+    def dH(self):
+        if self._dH is None:
+            self._dH = self._ev2D(self.mdH_s)
+        return self._dH
 
+    @property
+    def dP(self):
+        if self._dP is None:
+            self._dP = self._ev2D(self.mdP_s)
+        return self._dP
+    
+#%% Function generator for Lompe
 
-
-
-
-
-
-
-
-
-
+    def get_H_fun(self, coord_sys='geo'):
+        """
+        Returns a function(lon, lat) that calculates Hall conductance 
+        using the existing class logic.
+        """
+        def interpolator(lon, lat):
+            self.set_space(lon=lon, lat=lat, coord_sys=coord_sys)
+            return self.H
+        return interpolator
+    
+    def get_P_fun(self, coord_sys='geo'):
+        """
+        Returns a function(lon, lat) that calculates Pedersen conductance 
+        using the existing class logic.
+        """
+        def interpolator(lon, lat):
+            self.set_space(lon=lon, lat=lat, coord_sys=coord_sys)
+            return self.P
+        return interpolator
+    
+    def get_dH_fun(self, coord_sys='geo'):
+        """
+        Returns a function(lon, lat) that calculates Hall conductance uncertainty 
+        using the existing class logic.
+        """
+        def interpolator(lon, lat):
+            self.set_space(lon=lon, lat=lat, coord_sys=coord_sys)
+            return self.dH
+        return interpolator
+    
+    def get_dP_fun(self, coord_sys='geo'):
+        """
+        Returns a function(lon, lat) that calculates Pedersen conductance uncertainty
+        using the existing class logic.
+        """
+        def interpolator(lon, lat):
+            self.set_space(lon=lon, lat=lat, coord_sys=coord_sys)
+            return self.dP
+        return interpolator
 
 
 
